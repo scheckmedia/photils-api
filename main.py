@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 from werkzeug.exceptions import default_exceptions
 from werkzeug.exceptions import HTTPException
 
@@ -15,6 +16,7 @@ def make_json_error(ex):
 
 
 app = Flask(__name__)
+CORS(app)
 
 for code in default_exceptions.keys():
     app.errorhandler(code)(make_json_error)

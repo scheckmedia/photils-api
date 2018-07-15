@@ -49,5 +49,4 @@ class AutoTagger:
             map(lambda x: x[0], sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True))
         )
 
-
         return recommended_tags

@@ -8,7 +8,7 @@ api = Blueprint('auto_tagger_api', 'auto_tagger_api')
 tagger = AutoTagger()
 
 
-@api.route('/tags/', methods=['POST'])
+@api.route('/tags', methods=['POST'])
 def get_tags_by_feature():
     data = request.get_json()
     if 'feature' not in data:
