@@ -1,0 +1,13 @@
+[Unit]
+Description=uWSGI instance to serve photils-api
+After=network.target
+
+[Service]
+User=photils
+Group=photils
+WorkingDirectory=/var/customers/webs/photils/api/
+Environment="PATH=/var/customers/webs/photils/api/venv/bin"
+ExecStart=/var/customers/webs/photils/api/venv/bin/uwsgi --ini photils-api.ini
+
+[Install]
+WantedBy=multi-user.target
