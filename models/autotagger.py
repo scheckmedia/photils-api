@@ -31,7 +31,7 @@ class AutoTagger:
 
         rbp = RandomBinaryProjections('rbp', 8, rand_seed=42)
         dist = EuclideanDistance()
-        nearest = [NearestFilter(20)]
+        nearest = [NearestFilter(10)]
         fetch = [FeatureUniqueFilter()]
         self.engine = Engine(self.DIMENSIONS, lshashes=[rbp],
                              distance=dist, vector_filters=nearest,  fetch_vector_filters=fetch)
