@@ -1,6 +1,6 @@
 from nearpy import Engine
-from nearpy.filters import VectorFilter
-from nearpy.distances import ManhattanDistance
+from nearpy.filters import VectorFilter, NearestFilter
+from nearpy.distances import EuclideanDistance
 from nearpy.hashes import RandomBinaryProjections
 import json
 import numpy as np
@@ -29,9 +29,12 @@ class AutoTagger:
             json_str = json_bytes.decode('utf-8')
             feature_list: dict = json.loads(json_str)
 
-        rbp = RandomBinaryProjections('rbp', 10)
-        dist = ManhattanDistance()
-        self.engine = Engine(self.DIMENSIONS, lshashes=[rbp], distance=dist, fetch_vector_filters=[FeatureUniqueFilter()])
+        rbp = RandomBinaryProjections('rbp', 8, rand_seed=42)
+        dist = EuclideanDistance()
+        nearest = [NearestFilter(20)]
+        fetch = [FeatureUniqueFilter()]
+        self.engine = Engine(self.DIMENSIONS, lshashes=[rbp],
+                             distance=dist, vector_filters=nearest,  fetch_vector_filters=fetch)
 
         for photo_id, item in feature_list.items():
             feature = np.array(item['feature'])
