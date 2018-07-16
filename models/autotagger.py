@@ -20,6 +20,7 @@ class FeatureUniqueFilter(VectorFilter):
             unique_dict[v[1]['id']] = v
         return list(unique_dict.values())
 
+
 class AutoTagger:
     DIMENSIONS = 64
 
