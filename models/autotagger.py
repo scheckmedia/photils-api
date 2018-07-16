@@ -2,10 +2,6 @@ from nearpy import Engine
 from nearpy.filters import VectorFilter, NearestFilter
 from nearpy.distances import ManhattanDistance
 from nearpy.hashes import RandomBinaryProjections
-import keras
-import keras.backend as K
-from keras_applications.resnet50 import ResNet50, preprocess_input
-from keras.preprocessing import image
 import json
 import numpy as np
 import operator
@@ -31,9 +27,13 @@ class FeatureUniqueFilter(VectorFilter):
 
 
 class AutoTagger:
+
     DIMENSIONS = 64
 
     def __init__(self):
+        import keras.backend as K
+        from keras_applications.resnet50 import ResNet50
+
         self.logger = logging.getLogger('photils')
         self.logger.info("load model")
         self.input_shape = (256, 256)
@@ -88,6 +88,9 @@ class AutoTagger:
         return recommended_tags
 
     def get_feature(self, base64img):
+        from keras_applications.resnet50 import ResNet50, preprocess_input
+        from keras.preprocessing import image
+
         self.logger.info('get feature from image')
         try:
             img = Image.open(BytesIO(base64.b64decode(base64img)))

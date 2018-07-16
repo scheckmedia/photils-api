@@ -19,9 +19,6 @@ logger.info("initialize flask")
 app = Flask(__name__)
 CORS(app)
 
-
-
-
 for code in default_exceptions.keys():
     app.errorhandler(code)(make_json_error)
 
