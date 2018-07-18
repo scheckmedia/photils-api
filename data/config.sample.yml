@@ -1,0 +1,9 @@
+host: 0.0.0.0
+port: 11000
+debug: false
+log:
+  file: 'photils-api.log' # if None file logging is disabled
+  level: 'INFO'
+  backup_count: 5
+  max_size: 10 # in MB
+
