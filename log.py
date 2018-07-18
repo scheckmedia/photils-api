@@ -22,6 +22,7 @@ def setup_custom_logger(name):
         max_bytes = Config.get('log').get('max_size', 5) * 1024 * 1024
         backup_count = Config.get('log').get('backup_count', 5)
         rotating_handler = RotatingFileHandler(path, maxBytes=max_bytes, backupCount=backup_count)
+        rotating_handler.setFormatter(formatter)
         logger.addHandler(rotating_handler)
 
     return logger
