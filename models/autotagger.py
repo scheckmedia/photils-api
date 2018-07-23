@@ -73,7 +73,7 @@ class AutoTagger:
 
         for photo_id, item in feature_list.items():
             feature = np.array(item['feature'])
-            tags = item['meta']['tags']
+            tags = ['tags']
             self.engine.store_vector(feature, {'tags': tags, 'id': photo_id})
 
         self.logger.info('LSH engine initialization successful')
