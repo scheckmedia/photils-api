@@ -6,7 +6,6 @@ from werkzeug.exceptions import default_exceptions
 from werkzeug.exceptions import HTTPException
 from api.utils import ApiException
 
-
 def make_json_error(ex):
     response = jsonify(message=str(ex), success=False)
     response.status_code = (ex.code
@@ -23,7 +22,6 @@ CORS(app)
 
 for code in default_exceptions.keys():
     app.errorhandler(code)(make_json_error)
-
 
 from api.autotagger import api as auto_tagger_api
 app.register_blueprint(auto_tagger_api)

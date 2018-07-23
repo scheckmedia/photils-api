@@ -2,10 +2,6 @@ from nearpy import Engine
 from nearpy.filters import VectorFilter, NearestFilter
 from nearpy.distances import ManhattanDistance
 from nearpy.hashes import RandomBinaryProjections
-import keras
-import keras.backend as K
-from keras_applications.resnet50 import ResNet50, preprocess_input
-from keras.preprocessing import image
 import json
 import numpy as np
 import operator
@@ -15,6 +11,7 @@ from io import BytesIO
 import base64
 from api.utils import ApiException
 import logging
+
 
 
 class FeatureUniqueFilter(VectorFilter):
@@ -35,17 +32,20 @@ class AutoTagger:
     DIMENSIONS = 64
     NUM_HASH_TABLES = 16
     HASH_LENGTH = 8
+    TOP_K = 40
 
     def __init__(self):
+        import keras.backend as K
+        from keras_applications.resnet50 import ResNet50
+
         self.logger = logging.getLogger('photils')
         self.logger.info("load model")
         self.input_shape = (256, 256)
         self.model = ResNet50(weights='imagenet', pooling='avg', include_top=False, input_shape=self.input_shape + (3,))
         self.logger.info("model warmup")
-        self.model.predict(np.zeros((1,) + self.input_shape + (3,)))  # warmup
+        # self.model.predict(np.zeros((1,) + self.input_shape + (3,)))  # warmup
         self.session = K.get_session()
-        self.graph = K.tf.get_default_graph()
-        self.graph.finalize()
+        #self.graph.finalize()
 
         self.logger.info('load pca components')
         with open('data/pca_components.json', 'r') as f:
@@ -66,7 +66,7 @@ class AutoTagger:
             rbps += [RandomBinaryProjections('rbp_%d' % i, self.HASH_LENGTH)]
 
         dist = ManhattanDistance()
-        nearest = [NearestFilter(10)]
+        nearest = [NearestFilter(self.TOP_K)]
         fetch = [FeatureUniqueFilter()]
         self.engine = Engine(self.DIMENSIONS, lshashes=rbps,
                              distance=dist, vector_filters=nearest,  fetch_vector_filters=fetch)
@@ -103,14 +103,16 @@ class AutoTagger:
             self.logger.error('image loading fail')
             raise ApiException("invalid base64 image", 400)
 
+        from keras.applications.resnet50 import preprocess_input
+        from keras.preprocessing import image
+
         x = image.img_to_array(img)
         x = np.expand_dims(x, axis=0)
 
         self.logger.info('run prediction')
         with self.session.as_default():
-            with self.graph.as_default():
-                x = preprocess_input(x)
-                prediction = self.model.predict(x).reshape((2048,)).astype(np.float16)
+            x = preprocess_input(x)
+            prediction = self.model.predict(x).reshape((2048,)).astype(np.float16)
 
         self.logger.info('prediction successful')
 
