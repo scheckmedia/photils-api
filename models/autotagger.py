@@ -72,8 +72,8 @@ class AutoTagger:
                              distance=dist, vector_filters=nearest,  fetch_vector_filters=fetch)
 
         for photo_id, item in feature_list.items():
-            feature = np.array(item['feature'])
-            tags = ['tags']
+            feature = np.array(item['feature'], dtype=np.float32)
+            tags = item['tags']
             self.engine.store_vector(feature, {'tags': tags, 'id': photo_id})
 
         self.logger.info('LSH engine initialization successful')
@@ -86,8 +86,10 @@ class AutoTagger:
                 recommended_tags.setdefault(tag, 0)
                 recommended_tags[tag] += 1
 
+        filtered = filter(lambda x: x[1] > 1,
+                          sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True))
         recommended_tags = list(
-            map(lambda x: x[0], sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True))
+            map(lambda x: x[0], filtered)
         )
 
         self.logger.info('found %d items' % len(recommended_tags))
