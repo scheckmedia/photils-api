@@ -13,7 +13,6 @@ from api.utils import ApiException
 import logging
 
 
-
 class FeatureUniqueFilter(VectorFilter):
     def __init__(self):
         pass
@@ -35,18 +34,7 @@ class AutoTagger:
     TOP_K = 40
 
     def __init__(self):
-        import keras.backend as K
-        from keras_applications.resnet50 import ResNet50
-
         self.logger = logging.getLogger('photils')
-        self.logger.info("load model")
-        self.input_shape = (256, 256)
-        self.model = ResNet50(weights='imagenet', pooling='avg', include_top=False, input_shape=self.input_shape + (3,))
-        self.logger.info("model warmup")
-        # self.model.predict(np.zeros((1,) + self.input_shape + (3,)))  # warmup
-        self.session = K.get_session()
-        #self.graph.finalize()
-
         self.logger.info('load pca components')
         with open('data/pca_components.json', 'r') as f:
             self.pca_componentes = np.array(json.load(f))
@@ -77,6 +65,18 @@ class AutoTagger:
             self.engine.store_vector(feature, {'tags': tags, 'id': photo_id})
 
         self.logger.info('LSH engine initialization successful')
+
+
+
+    def init_model(self):
+        import keras.backend as K
+        from keras_applications.resnet50 import ResNet50
+        self.logger.info("load model")
+        self.input_shape = (256, 256)
+        self.model = ResNet50(weights='imagenet', pooling='avg', include_top=False, input_shape=self.input_shape + (3,))
+        self.logger.info("model warmup")
+        # self.model.predict(np.zeros((1,) + self.input_shape + (3,)))  # warmup
+        self.session = K.get_session()
 
     def get_tags(self, query: np.array):
         self.logger.info('get tags by query')
@@ -114,7 +114,7 @@ class AutoTagger:
         self.logger.info('run prediction')
         with self.session.as_default():
             x = preprocess_input(x)
-            prediction = self.model.predict(x).reshape((2048,)).astype(np.float16)
+            prediction = self.model.predict(x).reshape((2048,))
 
         self.logger.info('prediction successful')
 

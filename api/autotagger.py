@@ -1,15 +1,14 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from .utils import ApiException
-from models.autotagger import AutoTagger
 
 import numpy as np
 
 api = Blueprint('auto_tagger_api', 'auto_tagger_api')
-tagger = AutoTagger()
 
 
 @api.route('/tags', methods=['POST'])
 def get_tags_by_feature():
+    tagger = current_app.tagger
     data = request.get_json()
     if 'feature' not in data and 'image' not in data:
         raise ApiException("invalid feature parameter", 400)

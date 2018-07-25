@@ -2,9 +2,12 @@ from config import Config
 from log import setup_custom_logger
 from flask import Flask, jsonify
 from flask_cors import CORS
+from models.autotagger import AutoTagger
 from werkzeug.exceptions import default_exceptions
 from werkzeug.exceptions import HTTPException
 from api.utils import ApiException
+
+
 
 def make_json_error(ex):
     response = jsonify(message=str(ex), success=False)
@@ -18,7 +21,14 @@ logger = setup_custom_logger('photils')
 logger.info("initialize flask")
 
 app = Flask(__name__)
+app.tagger = AutoTagger()
 CORS(app)
+
+
+@app.before_first_request
+def init_tagger():
+    app.tagger.init_model()
+
 
 for code in default_exceptions.keys():
     app.errorhandler(code)(make_json_error)
@@ -30,6 +40,5 @@ if __name__ == "__main__":
     app.run(
         host=Config.get('host'),
         port=Config.get('port'),
-        debug=Config.get('debug', False),
-        threaded=True
+        debug=Config.get('debug', False)
     )
