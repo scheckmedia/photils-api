@@ -115,7 +115,7 @@ class AutoTagger:
         self.logger.info('run prediction')
         with self.session.as_default():
             x = preprocess_input(x)
-            prediction = self.model.predict(x).reshape((2048,))
+            prediction = self.model.predict(x).flatten()
 
         self.logger.info('prediction successful')
 
