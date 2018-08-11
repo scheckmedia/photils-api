@@ -86,9 +86,9 @@ class AutoTagger:
                 recommended_tags.setdefault(tag, 0)
                 recommended_tags[tag] += 1
 
-        # filtered = filter(lambda x: x[1] > 1,
-        #                   sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True))
-        filtered = sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True)
+        filtered = filter(lambda x: x[1] > 1,
+                          sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True))
+        # filtered = sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True)
         recommended_tags = list(
             map(lambda x: x[0], filtered)
         )
