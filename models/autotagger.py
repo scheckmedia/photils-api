@@ -2,10 +2,11 @@ from nearpy import Engine
 from nearpy.filters import VectorFilter, NearestFilter
 from nearpy.distances import ManhattanDistance
 from nearpy.hashes import RandomBinaryProjections
-import json
 import numpy as np
+import pandas as pd
 import operator
-import gzip
+import json
+from tqdm import tqdm
 from PIL import Image
 from io import BytesIO
 import base64
@@ -28,24 +29,20 @@ class FeatureUniqueFilter(VectorFilter):
 
 
 class AutoTagger:
-    DIMENSIONS = 64
+    DIMENSIONS = 256
     NUM_HASH_TABLES = 16
     HASH_LENGTH = 8
-    TOP_K = 40
+    TOP_K = 10
 
     def __init__(self):
         self.logger = logging.getLogger('photils')
-        self.logger.info('load pca components')
-        with open('data/pca_components.json', 'r') as f:
-            self.pca_componentes = np.array(json.load(f))
-            self.logger.info('pca components loading successful')
+        self.logger.info('load dataset and features')
+        df = pd.read_csv('data/dataset.csv.gz')
+        features = np.load('data/pca_features.npy')
 
-        self.logger.info('load features')
-        with gzip.GzipFile('data/feature_list.json.gz') as f:
-            json_bytes = f.read()
-            json_str = json_bytes.decode('utf-8')
-            feature_list: dict = json.loads(json_str)
-            self.logger.info('feature loading successful')
+        valid_tags = set()
+        with open('data/tags_flattened.json') as f:
+            valid_tags.update(json.load(f))
 
         self.logger.info('initialize LSH engine')
 
@@ -59,21 +56,24 @@ class AutoTagger:
         self.engine = Engine(self.DIMENSIONS, lshashes=rbps,
                              distance=dist, vector_filters=nearest,  fetch_vector_filters=fetch)
 
-        for photo_id, item in feature_list.items():
-            feature = np.array(item['feature'], dtype=np.float32)
-            tags = item['tags']
-            self.engine.store_vector(feature, {'tags': tags, 'id': photo_id})
+        for idx, row in tqdm(df.iterrows(), total=len(df)):
+            feature = np.array(features[idx], dtype=np.float32)
+            tags = []
+            for tag in row['tags'].split(' '):
+                tag = tag.replace('+', '').replace(' ', '')
+                if tag in valid_tags:
+                    tags.append(tag)
+
+            self.engine.store_vector(feature, {'tags': tags, 'id': row['id']})
 
         self.logger.info('LSH engine initialization successful')
 
-
-
     def init_model(self):
         import keras.backend as K
-        from keras_applications.resnet50 import ResNet50
+        from keras.models import load_model
         self.logger.info("load model")
         self.input_shape = (256, 256)
-        self.model = ResNet50(weights='imagenet', pooling='avg', include_top=False, input_shape=self.input_shape + (3,))
+        self.model = load_model('data/model.hdf5')
         self.logger.info("model warmup")
         # self.model.predict(np.zeros((1,) + self.input_shape + (3,)))  # warmup
         self.session = K.get_session()
@@ -86,8 +86,9 @@ class AutoTagger:
                 recommended_tags.setdefault(tag, 0)
                 recommended_tags[tag] += 1
 
-        filtered = filter(lambda x: x[1] > 1,
-                          sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True))
+        # filtered = filter(lambda x: x[1] > 1,
+        #                   sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True))
+        filtered = sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True)
         recommended_tags = list(
             map(lambda x: x[0], filtered)
         )
@@ -118,4 +119,4 @@ class AutoTagger:
 
         self.logger.info('prediction successful')
 
-        return prediction.dot(self.pca_componentes)
+        return prediction

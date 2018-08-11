@@ -2,6 +2,7 @@ absl-py==0.2.2
 astor==0.7.1
 bitarray==0.8.3
 click==6.7
+dill==0.2.8.2
 Flask==1.0.2
 Flask-Cors==3.0.6
 future==0.16.0
@@ -17,13 +18,17 @@ Markdown==2.6.11
 MarkupSafe==1.0
 NearPy==1.0.0
 numpy==1.14.5
+pandas==0.23.4
 Pillow==5.2.0
 protobuf==3.6.0
+python-dateutil==2.7.3
+pytz==2018.5
 PyYAML==3.13
 scipy==1.1.0
 six==1.11.0
 tensorboard==1.9.0
 tensorflow==1.9.0
 termcolor==1.1.0
+tqdm==4.24.0
 uWSGI==2.0.17.1
 Werkzeug==0.14.1
