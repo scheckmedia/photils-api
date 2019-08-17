@@ -21,7 +21,7 @@ class AutoTagger:
         self.logger.info('load dataset and features')
         self.df = pd.read_csv('data/dataset.csv.gz')
         self.features = np.load('data/pca_features.npy')
-        self.ann = NearestNeighbors(n_neighbors=self.TOP_K, algorithm='ball_tree', metric='manhattan', n_jobs=-1)
+        self.ann = NearestNeighbors(n_neighbors=self.TOP_K, algorithm='ball_tree', metric='l1', n_jobs=-1)
         self.ann.fit(self.features)
 
         self.valid_tags = set()
@@ -42,28 +42,35 @@ class AutoTagger:
     def get_tags(self, query: np.array):
         self.logger.info('get tags by query')
         start = datetime.now()
-        items = self.ann.kneighbors([query], return_distance=False)
+        items = self.ann.kneighbors(query, return_distance=False)
 
-        recommended_tags = {}
-        for i in items.flatten():
-            tags = []
-            for tag in self.df.iloc[i]['tags'].split(' '):
-                tag = tag.replace('+', '').replace(' ', '')
-                if tag in self.valid_tags:
-                    tags.append(tag)
+        tags_response = []
+        for item in items:
+            recommended_tags = {}
+            for i in item:
+                tags = []
+                for tag in self.df.iloc[i]['tags'].split(' '):
+                    tag = tag.replace('+', '').replace(' ', '')
+                    if tag in self.valid_tags:
+                        tags.append(tag)
 
-            for tag in tags:
-                if not tag in recommended_tags:
-                    recommended_tags[tag] = 0
-                recommended_tags[tag] += 1
+                for tag in tags:
+                    if not tag in recommended_tags:
+                        recommended_tags[tag] = 0
+                    recommended_tags[tag] += 1
 
-        filtered = filter(
-            lambda x: x[1] > 1, sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True)
-        )
-        recommended_tags = list(map(lambda x: x[0], filtered))
-        e = (datetime.now() - start).total_seconds()
-        self.logger.info('found %d tags in %.2f sec' % (len(recommended_tags), e))
-        return recommended_tags
+            filtered = filter(
+                lambda x: x[1] > 1, sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True)
+            )
+            recommended_tags = list(map(lambda x: x[0], filtered))
+            e = (datetime.now() - start).total_seconds()
+            self.logger.info('found %d tags in %.2f sec' % (len(recommended_tags), e))
+            tags_response += [recommended_tags]
+
+        if items.shape[0] == 1:
+            return tags_response[0]
+        else:
+            return tags_response
 
     def get_feature(self, base64img):
         self.logger.info('get feature from image')

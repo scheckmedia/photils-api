@@ -10,21 +10,46 @@ api = Blueprint('auto_tagger_api', 'auto_tagger_api')
 def get_tags_by_feature():
     tagger = current_app.tagger
     data = request.get_json()
-    if 'feature' not in data and 'image' not in data:
+    key = None
+    allowed_keys = ['feature', 'features', 'image']
+
+    for k in data.keys():
+        if k in allowed_keys:
+            key = k
+            break
+
+    if key is None:
         raise ApiException("invalid feature parameter", 400)
 
-    if 'feature' in data:
-        if not isinstance(data['feature'], list):
-            feature = np.frombuffer(base64.decodebytes(str.encode(data['feature'])), dtype=np.float32)
+    if key == 'feature':
+        if not isinstance(data[key], list):
+            feature = np.frombuffer(base64.decodebytes(str.encode(data[key])), dtype=np.float32)
         else:
-            feature = np.array(data['feature'])
+            feature = np.array(data[key])
 
-        if len(feature) != tagger.DIMENSIONS:
+        if feature.shape[-1] != tagger.DIMENSIONS:
             raise ApiException("invalid dimension of feature vector", 400)
 
-        query = np.array(feature)
+        query = [np.array(feature)]
+    elif key == 'features':
+        if not len(data[key]):
+            raise ApiException("empty request", 400)
+
+        features = []
+        for feature in data[key]:
+            if not isinstance(feature, list):
+                feature = np.frombuffer(base64.decodebytes(str.encode(feature)), dtype=np.float32)
+            else:
+                feature = np.array(feature)
+
+            if feature.shape[-1] != tagger.DIMENSIONS:
+                raise ApiException("invalid dimension of feature vector", 400)
+
+            features += [feature]
+
+        query = np.array(features)
     else:
-        query = tagger.get_feature(data['image'])
+        query = [tagger.get_feature(data['image'])]
 
     recommended_tags = tagger.get_tags(query)
 
