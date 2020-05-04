@@ -1,7 +1,7 @@
+import tensorflow as tf
 from datetime import datetime
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
-import pandas as pd
 import operator
 import json
 from PIL import Image
@@ -12,62 +12,57 @@ import logging
 
 
 class AutoTagger:
-    DIMENSIONS = 256
+    DIMENSIONS = 128
     TOP_K = 30
 
     def __init__(self):
-        self.input_shape = (256, 256)
+        self.input_shape = (224, 224)
         self.logger = logging.getLogger('photils')
         self.logger.info('load dataset and features')
-        self.df = pd.read_csv('data/dataset.csv.gz')
-        self.features = np.load('data/pca_features.npy')
-        self.ann = NearestNeighbors(n_neighbors=self.TOP_K, algorithm='ball_tree', metric='l1', n_jobs=-1)
+        self.features = np.load('data/features.npy')
+        self.tagids = np.load('data/tagids.npy', allow_pickle=True)
+        self.model = tf.lite.Interpreter('data/model.tflite')
+        self.model.allocate_tensors()
+
+        self.logger.info('fit knn')
+        self.ann = NearestNeighbors(
+            n_neighbors=self.TOP_K, algorithm='ball_tree', metric='l2', n_jobs=-1)
         self.ann.fit(self.features)
 
-        self.valid_tags = set()
         with open('data/tags_flattened.json') as f:
-            self.valid_tags.update(json.load(f))
+            self.valid_tags = json.load(f)
 
         self.logger.info('init done')
 
-    def init_model(self):
-        import keras.backend as K
-        from keras.models import load_model
-        self.logger.info("load model")
-        self.model = load_model('data/model.hdf5')
-        self.logger.info("model warmup")
-        # self.model.predict(np.zeros((1,) + self.input_shape + (3,)))  # warmup
-        self.session = K.get_session()
-
-    def get_tags(self, query: np.array):
+    def get_tags(self, query: np.array, k: int = None):
         self.logger.info('get tags by query')
         start = datetime.now()
-        items = self.ann.kneighbors(query, return_distance=False)
+        kwargs = {'return_distance': False}
+
+        if k is not None and k > 0:
+            kwargs['n_neighbors'] = k
+
+        query_indices = self.ann.kneighbors(query, **kwargs)
 
         tags_response = []
-        for item in items:
+        for indices in query_indices:
+            tagid_indices = self.tagids[indices]
             recommended_tags = {}
-            for i in item:
-                tags = []
-                for tag in self.df.iloc[i]['tags'].split(' '):
-                    tag = tag.replace('+', '').replace(' ', '')
-                    if tag in self.valid_tags:
-                        tags.append(tag)
+            for tag_index in tagid_indices:
+                for tagid in tag_index:
+                    tag = self.valid_tags[tagid]
+                    recommended_tags[tag] = recommended_tags.get(tag, 0) + 1
 
-                for tag in tags:
-                    if not tag in recommended_tags:
-                        recommended_tags[tag] = 0
-                    recommended_tags[tag] += 1
+            filtered = sorted(recommended_tags.items(),
+                              key=operator.itemgetter(1), reverse=True)
 
-            filtered = filter(
-                lambda x: x[1] > 1, sorted(recommended_tags.items(), key=operator.itemgetter(1), reverse=True)
-            )
             recommended_tags = list(map(lambda x: x[0], filtered))
             e = (datetime.now() - start).total_seconds()
-            self.logger.info('found %d tags in %.2f sec' % (len(recommended_tags), e))
+            self.logger.info('found %d tags in %.2f sec' %
+                             (len(recommended_tags), e))
             tags_response += [recommended_tags]
 
-        if items.shape[0] == 1:
+        if query_indices.shape[0] == 1:
             return tags_response[0]
         else:
             return tags_response
@@ -75,23 +70,32 @@ class AutoTagger:
     def get_feature(self, base64img):
         self.logger.info('get feature from image')
         try:
-            img = Image.open(BytesIO(base64.b64decode(base64img)))
-            img = img.resize(self.input_shape, Image.BICUBIC).convert('RGB')
-        except Exception:
-            self.logger.error('image loading fail')
+            img = self.process(base64img)
+        except Exception as ex:
+            self.logger.error('image loading fail\n {}'.format(ex))
             raise ApiException("invalid base64 image", 400)
 
-        from keras.applications.resnet50 import preprocess_input
-        from keras.preprocessing import image
-
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-
         self.logger.info('run prediction')
-        with self.session.as_default():
-            x = preprocess_input(x)
-            prediction = self.model.predict(x).flatten()
-
+        prediction = self.predict(img)
+        prediction = prediction / \
+            np.linalg.norm(prediction, 2, axis=1, keepdims=True)
+        prediction = np.squeeze(prediction)
         self.logger.info('prediction successful')
 
         return prediction
+
+    def process(self, base64img):
+        img = Image.open(BytesIO(base64.b64decode(base64img)))
+        img = np.array(img.convert('RGB'))
+        img = tf.cast(img, tf.float32)
+        img = tf.image.resize(img, self.input_shape)
+        img = tf.keras.applications.mobilenet_v2.preprocess_input(img)
+        img = np.expand_dims(img, axis=0)
+        return img
+
+    def predict(self, image):
+        input_index = self.model.get_input_details()[0]["index"]
+        output_index = self.model.get_output_details()[0]["index"]
+        self.model.set_tensor(input_index, image)
+        self.model.invoke()
+        return self.model.get_tensor(output_index)

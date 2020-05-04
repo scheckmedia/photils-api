@@ -1,3 +1,4 @@
+from api.autotagger import api as auto_tagger_api
 from config import Config
 from log import setup_custom_logger
 from flask import Flask, jsonify
@@ -6,7 +7,6 @@ from models.autotagger import AutoTagger
 from werkzeug.exceptions import default_exceptions
 from werkzeug.exceptions import HTTPException
 from api.utils import ApiException
-
 
 
 def make_json_error(ex):
@@ -24,16 +24,9 @@ app = Flask(__name__)
 app.tagger = AutoTagger()
 CORS(app)
 
-
-@app.before_first_request
-def init_tagger():
-    app.tagger.init_model()
-
-
 for code in default_exceptions.keys():
     app.errorhandler(code)(make_json_error)
 
-from api.autotagger import api as auto_tagger_api
 app.register_blueprint(auto_tagger_api)
 
 if __name__ == "__main__":
